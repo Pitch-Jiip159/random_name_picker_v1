@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 import random
 import time
 
@@ -21,7 +22,7 @@ set_bg_color()
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.image("https://your-logo-url-here.png", width=150)  # Replace with your logo URL
+    st.image("https://your-logo-url-here.png", width=150)
     
 with col2:
     st.title('🎁 Random Name Picker for Buddy Game')
@@ -29,57 +30,65 @@ with col2:
 with col3:
     st.write("")
 
-# Initialize session state for names, departments, and picked names
-if 'names_list' not in st.session_state:
-    st.session_state.names_list = []
-
-if 'picked_names' not in st.session_state:
-    st.session_state.picked_names = []
-
-# User input form
-with st.form(key='name_form'):
-    name = st.text_input("Enter your name")
-    department = st.text_input("Enter your department")
-    submit_button = st.form_submit_button(label='Submit')
-
-# Add new name and department to the list
-if submit_button and name and department:
-    st.session_state.names_list.append({"Name": name, "Department": department})
-    st.success(f"{name} from {department} added successfully!")
-
-# Display the list of names on the left
-st.sidebar.title("Participants")
-for person in st.session_state.names_list:
-    st.sidebar.write(f"{person['Name']} ({person['Department']})")
+# Load CSV file into DataFrame
+@st.cache_data
+def load_data(file):
+    df = pd.read_csv(file)
+    return df
 
 # Function to pick a random name
-def pick_random_name():
-    available_names = [person for person in st.session_state.names_list if person['Name'] not in st.session_state.picked_names]
-    if available_names:
-        selected_person = random.choice(available_names)
-        st.session_state.picked_names.append(selected_person['Name'])
-        return selected_person['Name'], selected_person['Department']
+def pick_random_name(df, picked_names):
+    available_names = df[~df['Name'].isin(picked_names)]
+    if not available_names.empty:
+        selected_name = available_names.sample(n=1).iloc[0]
+        picked_names.append(selected_name['Name'])
+        return selected_name['Name'], selected_name.get('Department Name', 'N/A')
     else:
         return None, None
 
-# Pick a random name button
-if st.button('🎲 Pick a Random Name'):
-    with st.spinner('Picking a name...'):
-        time.sleep(2)  # Simulate a delay
-    name, department = pick_random_name()
-    if name:
-        st.markdown(f"<h2 style='color:green;'>🎉 Picked Name: {name}</h2>", unsafe_allow_html=True)
-        st.markdown(f"<h4 style='color:gray;'>Department: {department}</h4>", unsafe_allow_html=True)
-    else:
-        st.warning('All names have been picked.')
+# Function to reset the picked names list
+def reset_list():
+    return []
 
-# Reset all (Reset game)
-if st.button('🔄 Reset Game (Clear All)'):
-    st.session_state.names_list = []
-    st.session_state.picked_names = []
-    st.info('The game has been reset. All participants and picked names have been cleared.')
+# File uploader
+uploaded_file = st.file_uploader("📄 Upload a CSV file", type="csv")
 
-# Reset picked names only
-if st.button('🔄 Reset Picked Names'):
-    st.session_state.picked_names = []
-    st.info('The list of picked names has been reset. Participants remain in the game.')
+if uploaded_file is not None:
+    df = load_data(uploaded_file)
+    
+    # Initialize or load picked names list
+    if 'picked_names' not in st.session_state:
+        st.session_state.picked_names = []
+
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        # Pick a random name button
+        if st.button('🎲 Pick a Random Name'):
+            with st.spinner('Picking a name...'):
+                time.sleep(2)  # Simulate a delay
+            name, department = pick_random_name(df, st.session_state.picked_names)
+            if name:
+                st.markdown(f"<h1 style='color:white; background-color:green; padding: 20px; text-align: center;'>🎉 {name} 🎉</h1>", unsafe_allow_html=True)
+                st.markdown(f"<h4 style='color:gray; text-align: center;'>Department: {department}</h4>", unsafe_allow_html=True)
+            else:
+                st.warning('All names have been picked.')
+
+        # Reset button
+        if st.button('🔄 Reset List'):
+            st.session_state.picked_names = reset_list()
+            st.info('The list has been reset.')
+
+    with col2:
+        st.write("🎯 All Names:")
+        # Show the list of names, highlighting picked ones
+        for _, row in df.iterrows():
+            name = row['Name']
+            department = row.get('Department Name', 'N/A')
+            if name in st.session_state.picked_names:
+                st.markdown(f"✅ **{name}** - {department}", unsafe_allow_html=True)
+            else:
+                st.write(f"{name} - {department}")
+
+else:
+    st.info("Please upload a CSV file.")
