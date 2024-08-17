@@ -22,7 +22,7 @@ set_bg_color()
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.image("https://your-logo-url-here.png", width=150)
+    st.image("https://logos-world.net/wp-content/uploads/2023/03/AIS-Logo.png", width=150)
     
 with col2:
     st.title('🎁 Random Name Picker for Buddy Game')
