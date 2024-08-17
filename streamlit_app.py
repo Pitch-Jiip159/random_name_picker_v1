@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 import random
 import time
 
@@ -18,73 +17,96 @@ def set_bg_color():
 
 set_bg_color()
 
-# Streamlit App Title and Layout
-col1, col2, col3 = st.columns(3)
+# Initialize session state for group token, host status, names, and picked names
+if 'group_token' not in st.session_state:
+    st.session_state.group_token = None
 
-with col1:
-    st.image("https://your-logo-url-here.png", width=150)  # Replace with your logo URL
-    
-with col2:
-    st.title('🎁 Random Name Picker for Buddy Game')
+if 'is_host' not in st.session_state:
+    st.session_state.is_host = False
 
-with col3:
-    st.write("")
+if 'names_list' not in st.session_state:
+    st.session_state.names_list = []
 
-# Load CSV file into DataFrame
-@st.cache_data
-def load_data(file):
-    df = pd.read_csv(file)
-    return df
+if 'picked_names' not in st.session_state:
+    st.session_state.picked_names = []
 
-# Function to pick a random name
-def pick_random_name(df, picked_names):
-    available_names = df[~df['Name'].isin(picked_names)]
-    if not available_names.empty:
-        selected_name = available_names.sample(n=1).iloc[0]
-        picked_names.append(selected_name['Name'])
-        return selected_name['Name'], selected_name.get('Department Name', 'N/A')
-    else:
-        return None, None
+# Group creation or joining
+if st.session_state.group_token is None:
+    st.title("🎉 Create or Join a Buddy Game")
 
-# Function to reset the picked names list
-def reset_list():
-    return []
+    # Host creates the group
+    if st.button("🛠️ Create a Group"):
+        st.session_state.group_token = st.text_input("Enter a unique token for your group (e.g., a word or number):")
+        st.session_state.is_host = True
+        st.success(f"Group created successfully! Share this token with participants: {st.session_state.group_token}")
 
-# File uploader
-uploaded_file = st.file_uploader("📄 Upload a CSV file", type="csv")
-
-if uploaded_file is not None:
-    df = load_data(uploaded_file)
-    
-    # Display the first few rows of the DataFrame
-    st.write("Data preview:")
-    st.dataframe(df.head())
-
-    # Initialize or load picked names list
-    if 'picked_names' not in st.session_state:
-        st.session_state.picked_names = []
-
-    # Pick a random name button
-    if st.button('🎲 Pick a Random Name'):
-        with st.spinner('Picking a name...'):
-            time.sleep(2)  # Simulate a delay
-        name, department = pick_random_name(df, st.session_state.picked_names)
-        if name:
-            st.markdown(f"<h2 style='color:green;'>🎉 Picked Name: {name}</h2>", unsafe_allow_html=True)
-            st.markdown(f"<h4 style='color:gray;'>Department: {department}</h4>", unsafe_allow_html=True)
-        else:
-            st.warning('All names have been picked.')
-
-    # Show remaining names button
-    if st.button('📋 Show Remaining Names'):
-        remaining_names = df[~df['Name'].isin(st.session_state.picked_names)]
-        st.write(f'Remaining names ({len(remaining_names)}):')
-        st.dataframe(remaining_names[['Name', 'Department Name']])
-
-    # Reset button
-    if st.button('🔄 Reset List'):
-        st.session_state.picked_names = reset_list()
-        st.info('The list has been reset.')
-
+    # Participant joins the group
+    group_token_input = st.text_input("Enter the group token to join:")
+    if st.button("🔑 Join Group") and group_token_input == st.session_state.group_token:
+        st.session_state.is_host = False
+        st.success("You have successfully joined the group!")
+    elif group_token_input and st.session_state.group_token is not None:
+        st.error("Invalid group token. Please try again.")
 else:
-    st.info("Please upload a CSV file.")
+    st.title(f"🎁 Buddy Game (Group: {st.session_state.group_token})")
+
+    # User input form (only for participants)
+    if not st.session_state.is_host:
+        with st.form(key='name_form'):
+            name = st.text_input("Enter your name")
+            department = st.text_input("Enter your department")
+            submit_button = st.form_submit_button(label='Submit')
+
+        # Add new name and department to the list (only if not a duplicate)
+        if submit_button and name and department:
+            if name not in [person['Name'] for person in st.session_state.names_list]:
+                st.session_state.names_list.append({"Name": name, "Department": department})
+                st.success(f"{name} from {department} added successfully!")
+            else:
+                st.warning(f"{name} is already in the list. Try another name.")
+    
+    # Display the list of names (only for the host)
+    if st.session_state.is_host:
+        st.sidebar.title("Participants")
+        for person in st.session_state.names_list:
+            st.sidebar.write(f"{person['Name']} ({person['Department']})")
+
+        # Function to pick a random name
+        def pick_random_name():
+            available_names = [person for person in st.session_state.names_list if person['Name'] not in st.session_state.picked_names]
+            if available_names:
+                selected_person = random.choice(available_names)
+                st.session_state.picked_names.append(selected_person['Name'])
+                return selected_person['Name'], selected_person['Department']
+            else:
+                return None, None
+
+        # Pick a random name button
+        if st.button('🎲 Pick a Random Name'):
+            with st.spinner('Picking a name...'):
+                time.sleep(2)  # Simulate a delay
+            name, department = pick_random_name()
+            if name:
+                st.markdown(f"<h2 style='color:green;'>🎉 Picked Name: {name}</h2>", unsafe_allow_html=True)
+                st.markdown(f"<h4 style='color:gray;'>Department: {department}</h4>", unsafe_allow_html=True)
+            else:
+                st.warning('All names have been picked.')
+
+        # Reset all (Reset game)
+        if st.button('🔄 Reset Game (Clear All)'):
+            st.session_state.names_list = []
+            st.session_state.picked_names = []
+            st.info('The game has been reset. All participants and picked names have been cleared.')
+
+        # Reset picked names only
+        if st.button('🔄 Reset Picked Names'):
+            st.session_state.picked_names = []
+            st.info('The list of picked names has been reset. Participants remain in the game.')
+
+# Allow host to end the game and reset everything, including the group token
+if st.session_state.is_host and st.button('🚪 End Game (Reset Everything)'):
+    st.session_state.group_token = None
+    st.session_state.is_host = False
+    st.session_state.names_list = []
+    st.session_state.picked_names = []
+    st.info('The game has been ended, and everything has been reset.')
