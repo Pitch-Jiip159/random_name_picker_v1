@@ -34,7 +34,7 @@ def play_sound():
 col1, col2, col3 = st.columns([1, 2, 1])
 
 with col1:
-    st.image("https://logos-world.net/wp-content/uploads/2023/03/AIS-Logo.png", width=150)
+    st.image("https://ws-adv.ais.co.th/uploads/files/70/Picture1.png", width=150)
     
 with col2:
     st.title('🎁 Welcome to OCM Party!')
