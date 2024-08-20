@@ -37,7 +37,7 @@ with col1:
     st.image("https://ws-adv.ais.co.th/uploads/files/70/Picture1.png", width=150)
     
 with col2:
-    st.title('🎁 Welcome to OCM Party!')
+    st.title('🎁 Welcome to The Party!')
 
 with col3:
     st.write("")
